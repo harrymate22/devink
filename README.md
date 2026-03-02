@@ -1,7 +1,7 @@
 <h1 align="center">
 	<br>
 	<br>
-	<img width="320" src="https://raw.githubusercontent.com/harrymate22/devink/main/media/Devink.png" alt="devink">
+	<img width="320" src="https://raw.githubusercontent.com/harrymate22/devink/main/media/logo.png" alt="devink">
 	<br>
 	<br>
 	<br>
@@ -13,6 +13,8 @@
 [![license](https://badgen.net/github/license/user/devink)](https://github.com/user/devink/blob/main/LICENSE)
 [![types](https://badgen.net/npm/types/devink)](https://www.npmjs.com/package/devink)
 [![dependencies](https://badgen.net/bundlephobia/dependency-count/devink)](https://bundlephobia.com/result?p=devink)
+
+![](https://raw.githubusercontent.com/harrymate22/devink/main/media/demo.png)
 
 **Devink** is a production-grade, zero-dependency Node.js logging library featuring custom transports, graceful JSON serialization, a deep-merging theme system, and automatic ANSI color detection.
 

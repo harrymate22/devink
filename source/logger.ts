@@ -1,5 +1,5 @@
 import { defaultTheme, type Theme } from './theme.js';
-import { gray } from './utils/ansi.js';
+import { gray, hex } from './utils/ansi.js';
 
 export interface Transport {
   success: (...args: unknown[]) => void;
@@ -49,12 +49,34 @@ export class Logger {
     return gray(`[${time}] `);
   }
 
+  private highlightJson(jsonString: string): string {
+    if (!this.colors) return jsonString;
+    return jsonString.replace(
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+      (match) => {
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            // Key
+            return hex('#9ca3af', match.slice(0, -1)) + ':';
+          }
+          // String value
+          return hex('#34d399', match);
+        }
+        if (/true|false/.test(match)) return hex('#c084fc', match);
+        if (/null/.test(match)) return hex('#f87171', match);
+        // Number
+        return hex('#fbbf24', match);
+      },
+    );
+  }
+
   private formatMessage(message: unknown[]): string {
     return message
       .map((m) => {
         if (typeof m === 'string') return m;
         try {
-          return JSON.stringify(m, null, 2);
+          const json = JSON.stringify(m, null, 2);
+          return '\n' + this.highlightJson(json);
         } catch {
           return '[Unserializable Object]';
         }
