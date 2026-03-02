@@ -1,0 +1,57 @@
+{
+  "name": "devink",
+  "version": "1.0.1",
+  "description": "Fast, lightweight, professional logger built with TypeScript. No dependencies.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint \"source/**/*.ts\"",
+    "format": "prettier --write \"source/**/*.ts\" \"tests/**/*.ts\" \"examples/**/*.ts\"",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+     "logger",
+  "logging",
+  "node-logger",
+  "typescript-logger",
+  "terminal-logger",
+  "ansi-colors",
+  "cli-logger",
+  "console-logger",
+  "structured-logger",
+  "zero-dependency"
+  ],
+  "author": "harrymate22",
+  "license": "MIT",
+  "repository": "harrymate22/devink",
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.0.0",
+    "prettier": "^3.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.0.0"
+  }
+}
