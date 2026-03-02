@@ -1,7 +1,7 @@
 <h1 align="center">
 	<br>
 	<br>
-	<img width="320" src="media/Devink.png" alt="devink">
+	<img width="320" src="https://raw.githubusercontent.com/harrymate22/devink/main/media/Devink.png" alt="devink">
 	<br>
 	<br>
 	<br>
