@@ -1,4 +1,10 @@
-![devink - Fast, zero-dependency Node.js Logger](media/cover.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/harrymate22/devink/main/media/logo.png" alt="devink logo" width="200" />
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/harrymate22/devink/main/media/demo.png" alt="devink demo" width="600" />
+</p>
 
 # devink
 
