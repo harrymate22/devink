@@ -11,53 +11,53 @@ describe('Logger', () => {
   it('should call custom transport on success', () => {
     const successSpy = vi.fn();
     const logger = createLogger({
-      transport: { success: successSpy },
+      transports: [{ write: successSpy }],
     });
     logger.success('test message');
     expect(successSpy).toHaveBeenCalled();
   });
 
   it('should format message with timestamp if enabled', () => {
-    const infoSpy = vi.fn();
-    const logger = createLogger({ timestamps: true, transport: { info: infoSpy } });
+    const writeSpy = vi.fn();
+    const logger = createLogger({ timestamps: true, transports: [{ write: writeSpy }] });
     logger.info('time test');
-    expect(infoSpy).toHaveBeenCalled();
-    const output = infoSpy.mock.calls[0]?.[0] as string;
-    expect(output).toMatch(/\[\d{2}:\d{2}:\d{2}\]/);
+    expect(writeSpy).toHaveBeenCalled();
+    const ctx = writeSpy.mock.calls[0]?.[0] as any;
+    expect(ctx.formatted).toMatch(/\[\d{2}:\d{2}:\d{2}\]/);
   });
 
   it('should properly serialize standard objects', () => {
-    const errorSpy = vi.fn();
-    const logger = createLogger({ transport: { error: errorSpy } });
+    const writeSpy = vi.fn();
+    const logger = createLogger({ transports: [{ write: writeSpy }] });
     logger.error('Failed', { status: 500 });
-    expect(errorSpy).toHaveBeenCalled();
-    const output = errorSpy.mock.calls[0]?.[0] as string;
-    expect(output).toContain('500');
+    expect(writeSpy).toHaveBeenCalled();
+    const ctx = writeSpy.mock.calls[0]?.[0] as any;
+    expect(ctx.formatted).toContain('500');
   });
 
   it('should gracefully handle circular JSON objects', () => {
-    const warnSpy = vi.fn();
-    const logger = createLogger({ transport: { warn: warnSpy } });
+    const writeSpy = vi.fn();
+    const logger = createLogger({ transports: [{ write: writeSpy }] });
     const circular: any = {};
     circular.self = circular;
     logger.warn('Warning', circular);
-    expect(warnSpy).toHaveBeenCalled();
-    const output = warnSpy.mock.calls[0]?.[0] as string;
-    expect(output).toContain('[Unserializable Object]');
+    expect(writeSpy).toHaveBeenCalled();
+    const ctx = writeSpy.mock.calls[0]?.[0] as any;
+  expect(ctx.formatted).toContain('[Circular]');
   });
 
   it('should strip ansi escapes when colors: false', () => {
-    const infoSpy = vi.fn();
+    const writeSpy = vi.fn();
     const logger = createLogger({
       colors: false,
-      transport: { info: infoSpy },
+      transports: [{ write: writeSpy }],
     });
     logger.info('Strip me');
-    expect(infoSpy).toHaveBeenCalled();
-    const output = infoSpy.mock.calls[0]?.[0] as string;
+    expect(writeSpy).toHaveBeenCalled();
+    const ctx = writeSpy.mock.calls[0]?.[0] as any;
     // ensure no ansi escape codes present
-    expect(output).not.toMatch(/\x1b\[[0-9;]*m/);
-    expect(output).toContain('Strip me');
+    expect(ctx.formatted).not.toMatch(/\x1b\[[0-9;]*m/);
+    expect(ctx.formatted).toContain('Strip me');
   });
 });
 

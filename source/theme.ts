@@ -1,4 +1,4 @@
-import { hex, bgHex, bold } from './utils/ansi.js';
+import { hex, dim, cyan, green, yellow, red } from './utils/ansi.js';
 
 export interface Theme {
   success: (msg: string) => string;
@@ -13,15 +13,43 @@ export interface Theme {
   };
 }
 
-export const defaultTheme: Theme = {
+export const modernTheme: Theme = {
+  success: (msg: string) => hex('#10b981', msg),
+  error: (msg: string) => hex('#f43f5e', msg),
+  warn: (msg: string) => hex('#f59e0b', msg),
+  info: (msg: string) => hex('#38bdf8', msg),
+  prefix: {
+    success: hex('#10b981', '✔') + ' ' + hex('#34d399', dim('success')),
+    error: hex('#f43f5e', '✖') + ' ' + hex('#fb7185', dim('error')),
+    warn: hex('#f59e0b', '⚠') + ' ' + hex('#fbbf24', dim('warn')),
+    info: hex('#38bdf8', 'ℹ') + ' ' + hex('#7dd3fc', dim('info')),
+  },
+};
+
+export const minimalTheme: Theme = {
   success: (msg: string) => msg,
   error: (msg: string) => msg,
   warn: (msg: string) => msg,
   info: (msg: string) => msg,
   prefix: {
-    success: hex('#10b981', '✔') + ' ' + bgHex('#064e3b', hex('#34d399', bold(' SUCCESS '))),
-    error: hex('#ef4444', '✖') + ' ' + bgHex('#7f1d1d', hex('#f87171', bold(' ERROR '))),
-    warn: hex('#f59e0b', '⚠') + ' ' + bgHex('#78350f', hex('#fbbf24', bold(' WARNING '))),
-    info: hex('#0ea5e9', 'ℹ') + ' ' + bgHex('#0c4a6e', hex('#38bdf8', bold(' INFO '))),
+    success: hex('#10b981', '✔'),
+    error: hex('#f43f5e', '✖'),
+    warn: hex('#f59e0b', '⚠'),
+    info: hex('#38bdf8', 'ℹ'),
   },
 };
+
+export const classicTheme: Theme = {
+  success: (msg: string) => green(msg),
+  error: (msg: string) => red(msg),
+  warn: (msg: string) => yellow(msg),
+  info: (msg: string) => cyan(msg),
+  prefix: {
+    success: green('SUCCESS'),
+    error: red('ERROR'),
+    warn: yellow('WARN'),
+    info: cyan('INFO'),
+  },
+};
+
+export const defaultTheme: Theme = modernTheme;
