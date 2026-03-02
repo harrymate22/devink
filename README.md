@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/harrymate22/devink/main/media/logo.png" alt="devink logo" width="200" />
+  <img src="https://raw.githubusercontent.com/harrymate22/devink/main/media/logo.png" alt="devink logo" width="300" />
 </p>
-
-
 
 # devink
 
@@ -11,13 +9,13 @@
 [![npm version](https://img.shields.io/npm/v/devink.svg)](https://npmjs.org/package/devink)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/harrymate22/devink/main/media/demo.png" alt="devink demo" width="600" />
-</p>
-
 `devink` is a zero-dependency **Node.js logger** designed for developers who need high performance, beautiful **CLI output**, and structured **JSON logging**. With full **ANSI color support**, dynamic terminal capability detection, and customizable transports, it's the perfect production-ready logger for modern TS/JS environments.
 
 ---
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/harrymate22/devink/main/media/demo.png" alt="devink demo" width="600" />
+</p>
 
 ## 🚀 Features
 

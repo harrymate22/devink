@@ -1,6 +1,6 @@
 {
   "name": "devink",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Fast, lightweight, professional logger built with TypeScript. No dependencies.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -13,7 +13,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18.0.0"
