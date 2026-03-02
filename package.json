@@ -1,6 +1,6 @@
 {
   "name": "devink",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Fast, lightweight, professional logger built with TypeScript. No dependencies.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -43,7 +43,10 @@
   ],
   "author": "harrymate22",
   "license": "MIT",
-  "repository": "harrymate22/devink",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harrymate22/devink.git"
+  },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@types/node": "^20.0.0",
