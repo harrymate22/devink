@@ -1,5 +1,5 @@
 import { defaultTheme, type Theme } from './theme.js';
-import { gray, hex, stripAnsi, isColorSupported } from './utils/ansi.js';
+import { gray, hex, red, dim, bold, cyan, yellow, stripAnsi, isColorSupported } from './utils/ansi.js';
 
 export enum LogLevel {
   trace = 10,
@@ -21,6 +21,8 @@ export interface TransportContext {
   formatted: string;
   raw: string;
   timestamp: string;
+  namespace?: string;
+  meta?: Record<string, unknown>;
 }
 
 export interface Transport {
@@ -34,199 +36,235 @@ export interface LoggerOptions {
   level?: LogLevelName;
   mode?: 'text' | 'json';
   transports?: Transport[];
+  sampling?: Record<string, number>;
+  redact?: string[];
+  namespace?: string;
 }
 
 export class ConsoleTransport implements Transport {
   write(ctx: TransportContext): void {
-    const stream = ctx.levelValue >= LogLevel.error ? console.error : console.log;
-    stream(ctx.formatted);
+    (ctx.levelValue >= LogLevel.error ? console.error : console.log)(ctx.formatted);
   }
+}
+
+const EMPTY_TS = { iso: '', formatted: '' };
+const CIRC = new Set();
+
+function stringify(value: unknown, space?: number): string {
+  CIRC.clear();
+  const result = JSON.stringify(value, (_k, v) => {
+    if (typeof v === 'object' && v !== null) {
+      if (CIRC.has(v)) return '[Circular]';
+      CIRC.add(v);
+    }
+    return v;
+  }, space);
+  CIRC.clear();
+  return result;
+}
+
+function redactDeep(val: unknown, keys: Set<string>): unknown {
+  if (typeof val !== 'object' || val === null || val instanceof Error) return val;
+  if (Array.isArray(val)) return val.map((v) => redactDeep(v, keys));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+    out[k] = keys.has(k.toLowerCase())
+      ? '[REDACTED]'
+      : typeof v === 'object' && v !== null && !(v instanceof Error)
+        ? redactDeep(v, keys)
+        : v;
+  }
+  return out;
 }
 
 export class Logger {
-  private theme: Theme;
-  private timestamps: boolean;
-  private colors: boolean;
-  private level: LogLevel;
-  private mode: 'text' | 'json';
-  private transports: Transport[];
-  private timeCache = { time: '', str: '' };
+  private t: Theme;
+  private ts: boolean;
+  private c: boolean;
+  private lv: LogLevel;
+  private m: 'text' | 'json';
+  private tr: Transport[];
+  private tc = { t: '', s: '' };
+  private sp: Record<string, number>;
+  private rk: Set<string>;
+  private ns: string;
+  private gd = 0;
+  private tm: Map<string, number> = new Map();
+  private sc: Map<string, number> = new Map();
+  private dm: Record<string, unknown>;
 
-  constructor(options: LoggerOptions = {}) {
-    this.theme = {
-      ...defaultTheme,
-      ...options.theme,
-      prefix: {
-        ...defaultTheme.prefix,
-        ...options.theme?.prefix,
-      },
-    };
-    this.timestamps = options.timestamps ?? false;
-    this.colors = options.colors ?? Boolean(isColorSupported);
-    this.level = LogLevel[options.level ?? 'trace'];
-    this.mode = options.mode ?? 'text';
-    this.transports = options.transports ?? [new ConsoleTransport()];
+  constructor(opts: LoggerOptions = {}, meta: Record<string, unknown> = {}) {
+    this.t = { ...defaultTheme, ...opts.theme, prefix: { ...defaultTheme.prefix, ...opts.theme?.prefix } };
+    this.ts = opts.timestamps ?? false;
+    this.c = opts.colors ?? Boolean(isColorSupported);
+    this.lv = LogLevel[opts.level ?? 'trace'];
+    this.m = opts.mode ?? 'text';
+    this.tr = opts.transports ?? [new ConsoleTransport()];
+    this.sp = opts.sampling ?? {};
+    this.rk = new Set((opts.redact ?? []).map((k) => k.toLowerCase()));
+    this.ns = opts.namespace ?? '';
+    this.dm = meta;
   }
 
-  private shouldLog(levelValue: number): boolean {
-    return levelValue >= this.level;
+  child(bindings: { namespace?: string; [k: string]: unknown }): Logger {
+    const { namespace: ns, ...rest } = bindings;
+    return new Logger({
+      theme: this.t,
+      timestamps: this.ts,
+      colors: this.c,
+      level: (Object.keys(LogLevel) as LogLevelName[]).find((k) => LogLevel[k] === this.lv) as LogLevelName,
+      mode: this.m,
+      transports: this.tr,
+      sampling: this.sp,
+      redact: Array.from(this.rk),
+      namespace: ns ? (this.ns ? `${this.ns}:${ns}` : ns) : this.ns,
+    }, { ...this.dm, ...rest });
   }
 
-  private getTimestamp(): { iso: string; formatted: string } {
-    if (!this.timestamps) return { iso: '', formatted: '' };
+  group(label: string): void {
+    if (LogLevel.info < this.lv) return;
+    const ts = this.getTs();
+    const np = this.nsPrefix();
+    const indent = '  '.repeat(this.gd);
+    if (this.m === 'json') {
+      const f = stringify({ level: 'info', type: 'groupStart', label, time: ts.iso });
+      this.dispatch('info', LogLevel.info, [label], f, f, ts.iso);
+    } else {
+      const line = `${ts.formatted}${np}${indent}${this.c ? bold(cyan(`▸ ${label}`)) : `▸ ${label}`}`;
+      this.dispatch('info', LogLevel.info, [label], line, stripAnsi(line), ts.iso);
+    }
+    this.gd++;
+  }
+
+  groupEnd(): void {
+    if (this.gd > 0) this.gd--;
+  }
+
+  time(label: string): void {
+    this.tm.set(label, performance.now());
+  }
+
+  timeEnd(label: string): void {
+    const s = this.tm.get(label);
+    if (s === undefined) return;
+    this.tm.delete(label);
+    const ms = performance.now() - s;
+    this.info(`${label}: ${ms < 1 ? ms.toFixed(3) : Math.round(ms)}ms`);
+  }
+
+  private getTs(): { iso: string; formatted: string } {
+    if (!this.ts) return EMPTY_TS;
     const now = new Date();
     const iso = now.toISOString();
-    const time = iso.split('T')[1]?.split('.')[0] || '';
-    if (this.timeCache.time === time) return { iso, formatted: this.timeCache.str };
-    const str = gray(`[${time}] `);
-    this.timeCache = { time, str };
-    return { iso, formatted: str };
+    const time = iso.slice(11, 19);
+    if (this.tc.t === time) return { iso, formatted: this.tc.s };
+    const s = gray(`[${time}] `);
+    this.tc = { t: time, s };
+    return { iso, formatted: s };
   }
 
-  private safeStringify(value: unknown, space?: number): string {
-    const cache = new Set();
-    return JSON.stringify(
-      value,
-      (_key, val) => {
-        if (typeof val === 'object' && val !== null) {
-          if (cache.has(val)) return '[Circular]';
-          cache.add(val);
-        }
-        return val;
-      },
-      space,
-    );
+  private nsPrefix(): string {
+    if (!this.ns) return '';
+    return this.c ? hex('#a78bfa', `[${this.ns}] `) : `[${this.ns}] `;
   }
 
-  private highlightJson(jsonString: string): string {
-    if (!this.colors || jsonString.length > 5000) return jsonString;
-    return jsonString.replace(
-      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
-      (match) => {
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) return hex('#9ca3af', match.slice(0, -1)) + ':';
-          return hex('#34d399', match);
-        }
-        if (/true|false/.test(match)) return hex('#c084fc', match);
-        if (/null/.test(match)) return hex('#f87171', match);
-        return hex('#fbbf24', match);
+  private hlJson(s: string): string {
+    if (!this.c || s.length > 5000) return s;
+    return s.replace(
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+      (m) => {
+        if (m[0] === '"') return m.endsWith(':') ? hex('#9ca3af', m.slice(0, -1)) + ':' : hex('#34d399', m);
+        if (m === 'true' || m === 'false') return hex('#c084fc', m);
+        if (m === 'null') return hex('#f87171', m);
+        return hex('#fbbf24', m);
       },
     );
   }
 
-  private formatMessage(message: unknown[]): string {
-    return message
-      .map((m) => {
-        if (typeof m === 'string') return m;
-        if (m instanceof Error) return m.stack || m.message;
-        try {
-          return '\n' + this.highlightJson(this.safeStringify(m, 2));
-        } catch {
-          return '[Unserializable]';
-        }
-      })
-      .join(' ');
+  private fmtErr(err: Error): string {
+    const stack = err.stack || err.message;
+    if (!this.c) return stack;
+    return stack.split('\n').map((line, i) => {
+      if (i === 0) return bold(red(line));
+      const f = line.match(/^(\s+at\s+)(.+?)(\s+\()?(.+?):(\d+):(\d+)\)?$/);
+      if (f) {
+        return f[4]!.includes('node_modules') || f[4]!.startsWith('node:')
+          ? dim(line)
+          : `${dim(f[1]!)}${yellow(f[2]!)}${dim(f[3] || ' ')}${cyan(f[4]!)}:${hex('#fbbf24', f[5]!)}:${dim(f[6]!)}${f[3] ? dim(')') : ''}`;
+      }
+      return line.match(/^\s+at\s+/) ? dim(line) : red(line);
+    }).join('\n');
   }
 
-  private emit(levelName: LogLevelName, themePrefix: string, themeColor: (s: string) => string, message: unknown[]): void {
-    const levelValue = LogLevel[levelName];
-    if (!this.shouldLog(levelValue)) return;
+  private fmtMsg(msg: unknown[]): string {
+    return msg.map((m) => {
+      if (typeof m === 'string') return m;
+      if (m instanceof Error) return '\n' + this.fmtErr(m);
+      try {
+        return '\n' + this.hlJson(stringify(this.rk.size ? redactDeep(m, this.rk) : m, 2));
+      } catch {
+        return '[Unserializable]';
+      }
+    }).join(' ');
+  }
 
-    const ts = this.getTimestamp();
-    let formatted: string;
-    let raw: string;
+  private emit(ln: LogLevelName, pfx: string, clr: (s: string) => string, msg: unknown[]): void {
+    const lv = LogLevel[ln];
+    if (lv < this.lv) return;
 
-    if (this.mode === 'json') {
-      const payload = {
-        level: levelName,
-        time: ts.iso,
-        message: message.length === 1 ? message[0] : message,
-      };
-      formatted = raw = this.safeStringify(payload);
+    const ts = this.getTs();
+    const np = this.nsPrefix();
+    const indent = '  '.repeat(this.gd);
+    let formatted: string, raw: string;
+
+    if (this.m === 'json') {
+      const rm = msg.map((m) => typeof m === 'object' && m !== null && !(m instanceof Error) && this.rk.size ? redactDeep(m, this.rk) : m);
+      const p: Record<string, unknown> = { level: ln, time: ts.iso, message: rm.length === 1 ? rm[0] : rm };
+      if (this.ns) p.namespace = this.ns;
+      if (Object.keys(this.dm).length) Object.assign(p, this.dm);
+      formatted = raw = stringify(p);
     } else {
-      const msgStr = this.formatMessage(message);
-      formatted = `${ts.formatted}${themePrefix} ${themeColor(msgStr)}`;
+      formatted = `${ts.formatted}${np}${indent}${pfx} ${clr(this.fmtMsg(msg))}`;
       raw = stripAnsi(formatted);
-      if (!this.colors) formatted = raw;
+      if (!this.c) formatted = raw;
     }
 
-    this.dispatch(levelName, levelValue, message, formatted, raw, ts.iso);
+    this.dispatch(ln, lv, msg, formatted, raw, ts.iso);
   }
 
-  private dispatch(
-    level: LogLevelName,
-    levelValue: number,
-    message: unknown[],
-    formatted: string,
-    raw: string,
-    timestamp: string,
-  ): void {
-    const ctx: TransportContext = { level, levelValue, message, formatted, raw, timestamp };
-    for (let i = 0; i < this.transports.length; i++) {
-      this.transports[i]?.write(ctx);
-    }
+  private dispatch(level: LogLevelName, levelValue: number, message: unknown[], formatted: string, raw: string, timestamp: string): void {
+    const ctx: TransportContext = { level, levelValue, message, formatted, raw, timestamp, namespace: this.ns || undefined, meta: Object.keys(this.dm).length ? this.dm : undefined };
+    for (let i = 0; i < this.tr.length; i++) this.tr[i]?.write(ctx);
   }
 
-  public success(...message: unknown[]): void {
-    this.emit('success', this.theme.prefix.success, this.theme.success, message);
-  }
+  success(...msg: unknown[]): void { this.emit('success', this.t.prefix.success, this.t.success, msg); }
+  error(...msg: unknown[]): void { this.emit('error', this.t.prefix.error, this.t.error, msg); }
+  warn(...msg: unknown[]): void { this.emit('warn', this.t.prefix.warn, this.t.warn, msg); }
+  info(...msg: unknown[]): void { this.emit('info', this.t.prefix.info, this.t.info, msg); }
+  trace(...msg: unknown[]): void { this.emit('trace', gray('🔍'), gray, msg); }
+  debug(...msg: unknown[]): void { this.emit('debug', hex('#94a3b8', '🐛'), (s) => hex('#94a3b8', s), msg); }
+  fatal(...msg: unknown[]): void { this.emit('fatal', hex('#be123c', '💀'), (s) => hex('#be123c', s), msg); }
 
-  public error(...message: unknown[]): void {
-    this.emit('error', this.theme.prefix.error, this.theme.error, message);
-  }
-
-  public warn(...message: unknown[]): void {
-    this.emit('warn', this.theme.prefix.warn, this.theme.warn, message);
-  }
-
-  public info(...message: unknown[]): void {
-    this.emit('info', this.theme.prefix.info, this.theme.info, message);
-  }
-
-  public trace(...message: unknown[]): void {
-    this.emit('trace', gray('🔍'), gray, message);
-  }
-
-  public debug(...message: unknown[]): void {
-    this.emit('debug', hex('#94a3b8', '🐛'), (s: string) => hex('#94a3b8', s), message);
-  }
-
-  public fatal(...message: unknown[]): void {
-    this.emit('fatal', hex('#be123c', '💀'), (s: string) => hex('#be123c', s), message);
-  }
-
-  public box(title: string, message: string): void {
-    const levelValue = LogLevel.info;
-    if (!this.shouldLog(levelValue)) return;
-
+  box(title: string, message: string): void {
+    if (LogLevel.info < this.lv) return;
     const lines = message.split('\n');
-    const width = Math.max(title.length, ...lines.map((l) => stripAnsi(l).length)) + 4;
-    const top = `┌─ ${title} ${'─'.repeat(width - title.length - 3)}┐`;
-    const bottom = `└${'─'.repeat(width)}┘`;
-    const content = lines.map((l) => {
-      const pad = width - stripAnsi(l).length - 2;
-      return `│ ${l}${' '.repeat(Math.max(0, pad))} │`;
-    });
-    
-    let formatted = [top, ...content, bottom].join('\n');
-    let raw = stripAnsi(formatted);
+    const w = Math.max(title.length, ...lines.map((l) => stripAnsi(l).length)) + 4;
+    const top = `┌─ ${title} ${'─'.repeat(w - title.length - 3)}┐`;
+    const bot = `└${'─'.repeat(w)}┘`;
+    const body = lines.map((l) => `│ ${l}${' '.repeat(Math.max(0, w - stripAnsi(l).length - 2))} │`);
+    let formatted = [top, ...body, bot].join('\n');
+    const raw = stripAnsi(formatted);
+    const ts = this.getTs();
 
-    if (this.mode === 'json') {
-      const ts = this.getTimestamp();
-      formatted = raw = this.safeStringify({
-        level: 'info',
-        time: ts.iso,
-        title,
-        message,
-      });
-      this.dispatch('info', levelValue, [message], formatted, raw, ts.iso);
+    if (this.m === 'json') {
+      const f = stringify({ level: 'info', time: ts.iso, title, message });
+      this.dispatch('info', LogLevel.info, [message], f, f, ts.iso);
       return;
     }
 
-    if (this.colors) formatted = hex('#38bdf8', formatted);
-    const ts = this.getTimestamp();
-    this.dispatch('info', levelValue, [message], formatted, raw, ts.iso);
+    if (this.c) formatted = hex('#38bdf8', formatted);
+    this.dispatch('info', LogLevel.info, [message], formatted, raw, ts.iso);
   }
 }
 
-export const createLogger = (options?: LoggerOptions): Logger => new Logger(options);
+export const createLogger = (opts?: LoggerOptions): Logger => new Logger(opts);

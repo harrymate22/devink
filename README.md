@@ -9,7 +9,7 @@
 [![npm version](https://img.shields.io/npm/v/devink.svg)](https://npmjs.org/package/devink)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-`devink` is a zero-dependency **Node.js logger** designed for developers who need high performance, beautiful **CLI output**, and structured **JSON logging**. With full **ANSI color support**, dynamic terminal capability detection, and customizable transports, it's the perfect production-ready logger for modern TS/JS environments.
+`devink` is a zero-dependency **Node.js logger** designed for developers who need high performance, beautiful **CLI output**, and structured **JSON logging**. Child loggers, HTTP middleware, file transport with rotation, log sampling, field redaction, pretty error formatting — all built in with full **TypeScript** support and **zero external dependencies**.
 
 ---
 
@@ -19,14 +19,22 @@
 
 ## 🚀 Features
 
-- **Zero Dependencies**: Lightweight and ultra-fast. No bloated `node_modules`.
-- **Full ANSI & 256/RGB Color Support**: Beautiful, soothing UI themes for the terminal. No harsh contrast.
-- **Structured JSON Logging**: Instantly switch to JSON mode for seamless integration with Datadog, ELK, AWS CloudWatch, and parsing tools.
-- **Log Levels & Priority Filtering**: Granular control via `trace`, `debug`, `info`, `warn`, `error`, and `fatal`.
-- **Custom Transports**: Route logs to files, external APIs, or custom formatting engines.
-- **Terminal Capability Detection**: Automatically detects `process.stdout.isTTY`, `FORCE_COLOR`, `NO_COLOR`, and `CI` environments.
-- **Boxed Output**: Help crucial information stand out with Unicode-boxed messages.
-- **TypeScript native**: Built with TS, exporting standard typings out-of-the-box.
+- **Zero Dependencies** — Ultra-fast, nothing in `node_modules` except your own code.
+- **Child Loggers** — Scoped, namespaced loggers with inherited configuration.
+- **HTTP Middleware** — Framework-agnostic request logging for Express, Fastify, Hono, and more.
+- **File Transport with Rotation** — Built-in async file transport with size-based rotation and retention.
+- **Log Grouping** — Visual grouping for multi-step operations with indented output.
+- **Performance Timers** — Measure execution time with `logger.time()` / `logger.timeEnd()`.
+- **Log Sampling / Rate Limiting** — Only log a fraction of high-frequency events in production.
+- **Sensitive Field Redaction** — Automatically mask passwords, tokens, and secrets from log output.
+- **Pretty Error Formatting** — Colored stack traces with highlighted source locations.
+- **Full ANSI & 256/RGB Color Support** — Beautiful, soothing UI themes for the terminal.
+- **Structured JSON Logging** — One-line switch to JSON for Datadog, ELK, AWS CloudWatch, and more.
+- **Log Levels & Priority Filtering** — Granular control via `trace`, `debug`, `info`, `warn`, `error`, and `fatal`.
+- **Custom Transports** — Route logs to files, external APIs, or custom formatting engines.
+- **Terminal Capability Detection** — Auto-detects `TTY`, `FORCE_COLOR`, `NO_COLOR`, and `CI` environments.
+- **Boxed Output** — Unicode-boxed messages for critical startup and alert information.
+- **TypeScript Native** — Built with TypeScript, full type definitions included.
 
 ---
 
@@ -46,11 +54,9 @@ pnpm add devink
 
 ---
 
-## 💻 Usage
+## 💻 Quick Start
 
-### Basic CLI Logger
-
-Create a beautiful terminal logger with timestamps and the modern theme out of the box:
+### Basic Logger
 
 ```ts
 import { createLogger } from 'devink';
@@ -71,18 +77,198 @@ logger.error(new Error('Connection timeout'));
 Perfect for production environments where log aggregation is crucial:
 
 ```ts
-import { createLogger } from 'devink';
-
 const logger = createLogger({
   mode: 'json',
   level: 'trace',
 });
 
 logger.info('Processing payment', { userId: 123, amount: 49.99 });
-// Output: {"level":"info","time":"2023-10-25T14:30:00.000Z","message":["Processing payment",{"userId":123,"amount":49.99}]}
+// {"level":"info","time":"2026-03-03T00:00:00.000Z","message":["Processing payment",{"userId":123,"amount":49.99}]}
 ```
 
-### Beautiful Boxed Output
+---
+
+## Child Loggers / Namespaced Logging
+
+Create scoped loggers that inherit the parent configuration and prepend a namespace to every log line:
+
+```ts
+import { createLogger } from 'devink';
+
+const logger = createLogger({ timestamps: true });
+
+const dbLogger = logger.child({ namespace: 'db' });
+const authLogger = logger.child({ namespace: 'auth' });
+
+dbLogger.info('Query executed in 12ms');
+// [14:30:00] [db] ℹ info Query executed in 12ms
+
+authLogger.warn('Token expires in 5 minutes');
+// [14:30:00] [auth] ⚠ warn Token expires in 5 minutes
+```
+
+Child loggers can also carry default metadata:
+
+```ts
+const requestLogger = logger.child({ namespace: 'api', requestId: 'abc-123' });
+requestLogger.info('Request received');
+// In JSON mode: {"level":"info","namespace":"api","requestId":"abc-123","message":"Request received"}
+```
+
+---
+
+## 🌐 HTTP Request Middleware
+
+Framework-agnostic middleware that auto-logs every HTTP request with method, path, status code, and response time:
+
+```ts
+import { createLogger, httpMiddleware } from 'devink';
+import express from 'express';
+
+const logger = createLogger({ timestamps: true });
+const app = express();
+
+app.use(httpMiddleware(logger));
+
+// Every request automatically logged:
+// [14:30:05] ℹ info GET /api/users 200 12ms
+// [14:30:06] ⚠ warn POST /api/login 401 8ms
+// [14:30:07] ✖ error GET /api/crash 500 3ms
+```
+
+Works with **Express**, **Fastify**, **Hono**, **Koa**, and any framework using the standard `(req, res, next)` pattern.
+
+---
+
+## 📂 Log Grouping / Indented Sections
+
+Visually group related log lines for multi-step operations:
+
+```ts
+const logger = createLogger({ timestamps: true });
+
+logger.group('Database Migration');
+logger.info('Running migration 001_create_users...');
+logger.info('Running migration 002_add_indexes...');
+logger.success('All migrations complete');
+logger.groupEnd();
+
+logger.info('Server ready');
+```
+
+Output:
+
+```
+[14:30:00] ▸ Database Migration
+[14:30:00]   ℹ info Running migration 001_create_users...
+[14:30:01]   ℹ info Running migration 002_add_indexes...
+[14:30:01]   ✔ success All migrations complete
+[14:30:01] ℹ info Server ready
+```
+
+---
+
+## ⏱ Performance Timers
+
+Measure execution time for any operation directly from the logger:
+
+```ts
+const logger = createLogger();
+
+logger.time('database-query');
+await db.query('SELECT * FROM users');
+logger.timeEnd('database-query');
+// ℹ info database-query: 243ms
+
+logger.time('api-call');
+await fetch('https://api.example.com/data');
+logger.timeEnd('api-call');
+// ℹ info api-call: 891ms
+```
+
+---
+
+## 📊 Log Sampling / Rate Limiting
+
+In high-throughput production environments, log only a fraction of repetitive events:
+
+```ts
+const logger = createLogger({
+  sampling: {
+    'db.query': 0.1, // log 10% of database queries
+    'cache.hit': 0.01, // log 1% of cache hits
+  },
+});
+
+// Only ~10% of these calls will actually produce output
+logger.info('Query executed', { table: 'users' });
+```
+
+---
+
+## 📁 Async File Transport
+
+Built-in file transport with async writes and automatic log rotation:
+
+```ts
+import { createLogger, FileTransport } from 'devink';
+
+const logger = createLogger({
+  transports: [
+    new FileTransport({
+      path: './logs/app.log',
+      maxSize: '10mb',
+      maxFiles: 5,
+      rotate: true,
+    }),
+  ],
+});
+
+logger.info('This goes to a file with automatic rotation');
+```
+
+When `app.log` exceeds 10 MB, it rotates to `app.log.1`, `app.log.2`, etc., keeping at most 5 rotated files.
+
+---
+
+## 🔒 Sensitive Field Redaction
+
+Automatically mask sensitive data before it reaches any transport:
+
+```ts
+const logger = createLogger({
+  redact: ['password', 'token', 'authorization', 'ssn'],
+});
+
+logger.info('User login', { user: 'harry', password: 's3cret!', token: 'eyJhbG...' });
+// ℹ info User login { user: 'harry', password: '[REDACTED]', token: '[REDACTED]' }
+```
+
+Redaction works recursively on nested objects and in both text and JSON modes.
+
+---
+
+## 💥 Pretty Error Formatting
+
+When you pass an `Error` object, devink renders a beautiful, colored stack trace instead of a raw dump:
+
+```ts
+const logger = createLogger();
+
+try {
+  throw new Error('Database connection failed');
+} catch (err) {
+  logger.error('Fatal error during startup', err);
+}
+```
+
+- Error name and message in **bold red**
+- Your source files highlighted with **colored file paths and line numbers**
+- `node_modules` and Node.js internal frames **dimmed** so your code stands out
+
+---
+
+## 🎁 Boxed Output
 
 Make important startup messages or critical alerts pop in the console:
 
@@ -101,14 +287,17 @@ logger.box(
 
 The `createLogger` function accepts an optional `LoggerOptions` object:
 
-| Property     | Type               | Default              | Description                                                                            |
-| ------------ | ------------------ | -------------------- | -------------------------------------------------------------------------------------- |
-| `level`      | `LogLevelName`     | `'trace'`            | Minimum log level to output (`trace` < `debug` < `info` < `warn` < `error` < `fatal`). |
-| `mode`       | `'text' \| 'json'` | `'text'`             | Output mode. Text formats for the console, JSON formats for log aggregators.           |
-| `colors`     | `boolean`          | `true`               | Whether to use ANSI colors. Automatically disabled if terminal doesn't support it.     |
-| `timestamps` | `boolean`          | `false`              | Prepend a timestamp to text outputs (`[HH:MM:SS]`).                                    |
-| `theme`      | `Partial<Theme>`   | `modernTheme`        | Customize the prefix, success, error, warn, and info styling.                          |
-| `transports` | `Transport[]`      | `[ConsoleTransport]` | Target output locations hooks (e.g., standard out, file streams).                      |
+| Property     | Type                     | Default              | Description                                                                  |
+| ------------ | ------------------------ | -------------------- | ---------------------------------------------------------------------------- |
+| `level`      | `LogLevelName`           | `'trace'`            | Minimum log level (`trace` < `debug` < `info` < `warn` < `error` < `fatal`). |
+| `mode`       | `'text' \| 'json'`       | `'text'`             | Output mode. Text for the console, JSON for log aggregators.                 |
+| `colors`     | `boolean`                | `true`               | ANSI colors. Automatically disabled if the terminal doesn't support it.      |
+| `timestamps` | `boolean`                | `false`              | Prepend a timestamp (`[HH:MM:SS]`) to text outputs.                          |
+| `theme`      | `Partial<Theme>`         | `modernTheme`        | Customize prefix icons and color functions for each log level.               |
+| `transports` | `Transport[]`            | `[ConsoleTransport]` | Target output destinations (console, file, external APIs).                   |
+| `namespace`  | `string`                 | `''`                 | Namespace prefix prepended to all log lines.                                 |
+| `redact`     | `string[]`               | `[]`                 | Field names to mask with `[REDACTED]` in log output.                         |
+| `sampling`   | `Record<string, number>` | `{}`                 | Sampling rates (0–1) for rate-limiting high-frequency log events.            |
 
 ### Theme Presets
 
@@ -128,28 +317,28 @@ const logger = createLogger({
 
 ### Custom Transports
 
-You can easily route logs anywhere by providing objects that implement the `Transport` interface (which requires a `write(ctx: TransportContext)` method).
+Route logs anywhere by implementing the `Transport` interface:
 
 ```ts
 import { createLogger, Transport, TransportContext } from 'devink';
 import fs from 'node:fs';
 
-class FileTransport implements Transport {
+class CustomTransport implements Transport {
   write(ctx: TransportContext) {
-    fs.appendFileSync('app.log', ctx.raw + '\n');
+    fs.appendFileSync('custom.log', ctx.raw + '\n');
   }
 }
 
 const logger = createLogger({
-  transports: [new FileTransport()], // Now writes to app.log instead of console
+  transports: [new CustomTransport()],
 });
 ```
 
 ---
 
-## 🎨 ANSI Capabilities
+## 🎨 ANSI Utilities
 
-If you want to build your own CLI tools, `devink` exports its high-performance, zero-dependency ANSI utilities:
+Build your own CLI tools with devink's high-performance, zero-dependency ANSI utilities:
 
 ```ts
 import { ansi } from 'devink';
@@ -157,11 +346,48 @@ import { ansi } from 'devink';
 console.log(ansi.rgb(255, 100, 50, 'True RGB text!'));
 console.log(ansi.hex('#34d399', 'Hex coded text!'));
 console.log(ansi.color256(128, '256 color terminal support!'));
-console.log(ansi.dim('Low contrast subtitle.'));
+console.log(ansi.bold(ansi.cyan('Bold and cyan!')));
 ```
 
 ---
 
-## 📄 License
+## 📊 Comparison: devink vs pino vs winston vs bunyan
+
+| Feature                    | devink | pino           | winston        | bunyan        |
+| -------------------------- | ------ | -------------- | -------------- | ------------- |
+| Zero Dependencies          | ✅     | ❌             | ❌             | ❌            |
+| TypeScript Native          | ✅     | ❌ (types pkg) | ❌ (types pkg) | ❌            |
+| Child Loggers              | ✅     | ✅             | ✅             | ✅            |
+| HTTP Middleware (built-in) | ✅     | ❌ (separate)  | ❌ (separate)  | ❌            |
+| File Transport (built-in)  | ✅     | ❌ (separate)  | ✅             | ✅            |
+| Log Rotation (built-in)    | ✅     | ❌             | ❌ (separate)  | ❌ (separate) |
+| Log Sampling               | ✅     | ❌             | ❌             | ❌            |
+| Field Redaction            | ✅     | ✅             | ❌             | ❌            |
+| Pretty Error Formatting    | ✅     | ❌ (separate)  | ❌             | ❌            |
+| Log Grouping               | ✅     | ❌             | ❌             | ❌            |
+| Performance Timers         | ✅     | ❌             | ❌             | ❌            |
+| Colored ANSI Output        | ✅     | ❌ (separate)  | ❌ (separate)  | ❌            |
+| Boxed Output               | ✅     | ❌             | ❌             | ❌            |
+| JSON Structured Logging    | ✅     | ✅             | ✅             | ✅            |
+| Custom Themes              | ✅     | ❌             | ❌             | ❌            |
+| Bundle Size                | ~8KB   | ~120KB         | ~280KB         | ~95KB         |
+
+---
+
+## 🗺️ Roadmap
+
+These features are planned for upcoming releases:
+
+- 🌐 **Browser Support** — Universal logger that works in both Node.js and browser DevTools.
+- 🔗 **OpenTelemetry Integration** — Automatic `traceId` and `spanId` injection.
+- 📡 **Log Aggregator Presets** — One-line setup for Datadog, Loki, and Elasticsearch.
+- 🖥️ **Interactive CLI Mode** — Live log panel with filtering for development.
+
+---
+
+Built with ❤️ by **[Harry Mate](https://github.com/harrymate22)**.
+🌟 If you find this library helpful, consider dropping a **Star** on GitHub and **[following me (@harrymate22)](https://github.com/harrymate22)** for more open-source tools!
+
+## License
 
 MIT © [harrymate22](https://github.com/harrymate22)
