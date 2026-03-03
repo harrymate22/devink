@@ -17,7 +17,7 @@
   <img src="https://raw.githubusercontent.com/harrymate22/devink/main/media/demo.png" alt="devink demo" width="600" />
 </p>
 
-## 🚀 Features
+## Features
 
 - **Zero Dependencies** — Ultra-fast, nothing in `node_modules` except your own code.
 - **Child Loggers** — Scoped, namespaced loggers with inherited configuration.
@@ -28,8 +28,8 @@
 - **Log Sampling / Rate Limiting** — Only log a fraction of high-frequency events in production.
 - **Sensitive Field Redaction** — Automatically mask passwords, tokens, and secrets from log output.
 - **Pretty Error Formatting** — Colored stack traces with highlighted source locations.
-- **Full ANSI & 256/RGB Color Support** — Beautiful, soothing UI themes for the terminal.
-- **Structured JSON Logging** — One-line switch to JSON for Datadog, ELK, AWS CloudWatch, and more.
+- **Full ANSI & 256/RGB Color Support** — Beautiful themes for the terminal.
+- **Structured JSON Logging** — One-line switch to JSON for Datadog, ELK, and more.
 - **Log Levels & Priority Filtering** — Granular control via `trace`, `debug`, `info`, `warn`, `error`, and `fatal`.
 - **Custom Transports** — Route logs to files, external APIs, or custom formatting engines.
 - **Terminal Capability Detection** — Auto-detects `TTY`, `FORCE_COLOR`, `NO_COLOR`, and `CI` environments.
@@ -38,7 +38,7 @@
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install devink
@@ -54,7 +54,7 @@ pnpm add devink
 
 ---
 
-## 💻 Quick Start
+## Quick Start
 
 ### Basic Logger
 
@@ -117,7 +117,7 @@ requestLogger.info('Request received');
 
 ---
 
-## 🌐 HTTP Request Middleware
+## HTTP Request Middleware
 
 Framework-agnostic middleware that auto-logs every HTTP request with method, path, status code, and response time:
 
@@ -140,7 +140,7 @@ Works with **Express**, **Fastify**, **Hono**, **Koa**, and any framework using 
 
 ---
 
-## 📂 Log Grouping / Indented Sections
+## Log Grouping
 
 Visually group related log lines for multi-step operations:
 
@@ -168,7 +168,7 @@ Output:
 
 ---
 
-## ⏱ Performance Timers
+## Performance Timers
 
 Measure execution time for any operation directly from the logger:
 
@@ -188,7 +188,7 @@ logger.timeEnd('api-call');
 
 ---
 
-## 📊 Log Sampling / Rate Limiting
+## Log Sampling
 
 In high-throughput production environments, log only a fraction of repetitive events:
 
@@ -206,7 +206,7 @@ logger.info('Query executed', { table: 'users' });
 
 ---
 
-## 📁 Async File Transport
+## File Transport
 
 Built-in file transport with async writes and automatic log rotation:
 
@@ -231,7 +231,7 @@ When `app.log` exceeds 10 MB, it rotates to `app.log.1`, `app.log.2`, etc., keep
 
 ---
 
-## 🔒 Sensitive Field Redaction
+## Field Redaction
 
 Automatically mask sensitive data before it reaches any transport:
 
@@ -248,7 +248,7 @@ Redaction works recursively on nested objects and in both text and JSON modes.
 
 ---
 
-## 💥 Pretty Error Formatting
+## Error Formatting
 
 When you pass an `Error` object, devink renders a beautiful, colored stack trace instead of a raw dump:
 
@@ -268,7 +268,7 @@ try {
 
 ---
 
-## 🎁 Boxed Output
+## Boxed Output
 
 Make important startup messages or critical alerts pop in the console:
 
@@ -283,7 +283,7 @@ logger.box(
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 The `createLogger` function accepts an optional `LoggerOptions` object:
 
@@ -336,7 +336,7 @@ const logger = createLogger({
 
 ---
 
-## 🎨 ANSI Utilities
+## ANSI Utilities
 
 Build your own CLI tools with devink's high-performance, zero-dependency ANSI utilities:
 
@@ -351,30 +351,9 @@ console.log(ansi.bold(ansi.cyan('Bold and cyan!')));
 
 ---
 
-## 📊 Comparison: devink vs pino vs winston vs bunyan
-
-| Feature                    | devink | pino           | winston        | bunyan        |
-| -------------------------- | ------ | -------------- | -------------- | ------------- |
-| Zero Dependencies          | ✅     | ❌             | ❌             | ❌            |
-| TypeScript Native          | ✅     | ❌ (types pkg) | ❌ (types pkg) | ❌            |
-| Child Loggers              | ✅     | ✅             | ✅             | ✅            |
-| HTTP Middleware (built-in) | ✅     | ❌ (separate)  | ❌ (separate)  | ❌            |
-| File Transport (built-in)  | ✅     | ❌ (separate)  | ✅             | ✅            |
-| Log Rotation (built-in)    | ✅     | ❌             | ❌ (separate)  | ❌ (separate) |
-| Log Sampling               | ✅     | ❌             | ❌             | ❌            |
-| Field Redaction            | ✅     | ✅             | ❌             | ❌            |
-| Pretty Error Formatting    | ✅     | ❌ (separate)  | ❌             | ❌            |
-| Log Grouping               | ✅     | ❌             | ❌             | ❌            |
-| Performance Timers         | ✅     | ❌             | ❌             | ❌            |
-| Colored ANSI Output        | ✅     | ❌ (separate)  | ❌ (separate)  | ❌            |
-| Boxed Output               | ✅     | ❌             | ❌             | ❌            |
-| JSON Structured Logging    | ✅     | ✅             | ✅             | ✅            |
-| Custom Themes              | ✅     | ❌             | ❌             | ❌            |
-| Bundle Size                | ~8KB   | ~120KB         | ~280KB         | ~95KB         |
-
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
 These features are planned for upcoming releases:
 
