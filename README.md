@@ -351,18 +351,6 @@ console.log(ansi.bold(ansi.cyan('Bold and cyan!')));
 
 ---
 
----
-
-## Roadmap
-
-These features are planned for upcoming releases:
-
-- 🌐 **Browser Support** — Universal logger that works in both Node.js and browser DevTools.
-- 🔗 **OpenTelemetry Integration** — Automatic `traceId` and `spanId` injection.
-- 📡 **Log Aggregator Presets** — One-line setup for Datadog, Loki, and Elasticsearch.
-- 🖥️ **Interactive CLI Mode** — Live log panel with filtering for development.
-
----
 
 Built with ❤️ by **[Harry Mate](https://github.com/harrymate22)**.
 🌟 If you find this library helpful, consider dropping a **Star** on GitHub and **[following me (@harrymate22)](https://github.com/harrymate22)** for more open-source tools!
