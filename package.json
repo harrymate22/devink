@@ -1,6 +1,6 @@
 {
   "name": "devink",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Terminal logging done right \u2014 structured, beautiful, and zero dependencies. A complete Node.js logging system with child loggers, HTTP middleware, and file rotation.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
